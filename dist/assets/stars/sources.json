@@ -1,0 +1,98 @@
+{
+  "catalog": "Tycho-2 main catalogue and Supplement-1",
+  "citation": "H\u00f8g et al. 2000, A&A 355, L27; VizieR I/259",
+  "source": "https://cdsarc.cds.unistra.fr/viz-bin/cat/I/259",
+  "documentation": "https://cdsarc.cds.unistra.fr/ftp/cats/I/259/ReadMe",
+  "authors_page": "https://www.astro.ku.dk/~erik/Tycho-2/",
+  "retrieved": "2026-10-08",
+  "queries": [
+    "SELECT TYC1,TYC2,TYC3,RAmdeg,DEmdeg,pmRA,pmDE,VTmag,\"RA(ICRS)\",\"DE(ICRS)\",\"EpRA-1990\",\"EpDE-1990\" FROM \"I/259/tyc2\" WHERE VTmag <= 12 AND ABS(SIN(RADIANS(\"DE(ICRS)\"))*0.9174820621 - COS(RADIANS(\"DE(ICRS)\"))*SIN(RADIANS(\"RA(ICRS)\"))*0.3977771559) < 0.0871557428",
+    "SELECT TYC1,TYC2,TYC3,\"RA(ICRS)\" AS RAdeg,\"DE(ICRS)\" AS DEdeg,pmRA,pmDE,VTmag FROM \"I/259/suppl_1\" WHERE VTmag <= 12"
+  ],
+  "csv_sha256": [
+    "389b4651538f8c4afbec4d3c5b5206968844ea170507db90ef9b0d10ba16aafd",
+    "148c2f9a2d8bf669f9d49519a9786ffcdf8feb6f9fb9c6d055ca8cdc604c7a4f"
+  ],
+  "ecliptic_band_degrees": 5.0,
+  "magnitude_limit_VT": 12.0,
+  "obliquity_J2000_degrees": 23.4392911,
+  "row_count": 133269,
+  "missing_proper_motion": 3127,
+  "record_bytes": 36,
+  "record_layout": "Little-endian: TYC1 uint16, TYC2 uint16, TYC3 uint8, missing-PM flag uint8, VT millimag int16, RA degrees float64, Dec degrees float64, pmRA*cosDec mas/yr float32, pmDec mas/yr float32, epoch Julian year float32",
+  "limitations": "Catalog selection V_T <= 12 is not a completeness claim. Tycho-2 is approximately 90% complete to V~11.5. Linear proper motion where available; no stellar parallax, radial velocity, variability, or binary orbital motion. Frozen epoch position where proper motion is unavailable. No synthetic stars.",
+  "files": [
+    {
+      "file": "tycho2-00.bin",
+      "rows": 7133,
+      "bytes": 256788,
+      "sha256": "4b38ef1f917fc699c2fdcdebfa534b3136fb2a1c1967d490d997810756f8f3b5"
+    },
+    {
+      "file": "tycho2-01.bin",
+      "rows": 7648,
+      "bytes": 275328,
+      "sha256": "54882639478c5e5085abc49971bd9efb8c04e8ef0dd8cb4c1a4061ba6d4450b4"
+    },
+    {
+      "file": "tycho2-02.bin",
+      "rows": 11373,
+      "bytes": 409428,
+      "sha256": "1e3577ee1ee19eeb06d0d4347d0f7321526b380e9670b4b23cf523ad20433e6b"
+    },
+    {
+      "file": "tycho2-03.bin",
+      "rows": 21893,
+      "bytes": 788148,
+      "sha256": "04f95ebf611083d28e2568d6475f6534418953980b64136738a10bfa79773025"
+    },
+    {
+      "file": "tycho2-04.bin",
+      "rows": 9621,
+      "bytes": 346356,
+      "sha256": "5f1dba83f2110efbdb33f0e365f51d6e0499068851dcdf0a6ae7c42a45ddf79b"
+    },
+    {
+      "file": "tycho2-05.bin",
+      "rows": 6533,
+      "bytes": 235188,
+      "sha256": "50ae474f9b676f3f547e445d857762185fc8ad45b2ef7750b41ff9a223303edb"
+    },
+    {
+      "file": "tycho2-06.bin",
+      "rows": 6680,
+      "bytes": 240480,
+      "sha256": "ab96587db2ef4a10df28f2e5ab98eadcb65d4dc2d24a0d4605f20576824aa709"
+    },
+    {
+      "file": "tycho2-07.bin",
+      "rows": 8766,
+      "bytes": 315576,
+      "sha256": "f0f5331add15cc14f5b0811472ed8452a8ebfab497d20ac702d33e5bf20704d7"
+    },
+    {
+      "file": "tycho2-08.bin",
+      "rows": 11869,
+      "bytes": 427284,
+      "sha256": "31e9ceaca330643ba6fae1c5db4e9b9cc9db32b12166e2a3b2ddaea3e513ba49"
+    },
+    {
+      "file": "tycho2-09.bin",
+      "rows": 23157,
+      "bytes": 833652,
+      "sha256": "6c7c806386271e711716a4f68562bfe4aec108640070dcf903aee9645dc6fddb"
+    },
+    {
+      "file": "tycho2-10.bin",
+      "rows": 11036,
+      "bytes": 397296,
+      "sha256": "68fe0cc2bf0a9aed14e66d26233238dfbe183e5e6ad60f1473695a4e86ae125a"
+    },
+    {
+      "file": "tycho2-11.bin",
+      "rows": 7560,
+      "bytes": 272160,
+      "sha256": "0a76842b18d60296f8554c6d9c355a04f7a675b489e0bd18ed51f971cb80dd0b"
+    }
+  ]
+}

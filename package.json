@@ -1,0 +1,19 @@
+{
+  "name": "moons-of-jupiter-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An educational reconstruction of the CLEA Moons of Jupiter activity",
+  "scripts": {
+    "test:science": "node scripts/check-science.mjs",
+    "test:ui": "node scripts/check-ui.mjs",
+    "test:click-fits": "node scripts/check-click-fits.mjs",
+    "test": "npm run test:science && npm run test:ui && npm run test:click-fits && npm run test:observing && npm run test:stars && npm run test:reports",
+    "test:observing": "node scripts/check-observing.mjs",
+    "test:stars": "node scripts/check-stars.mjs",
+    "test:reports": "node scripts/check-reports.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.1.2"
+  }
+}
