@@ -36,7 +36,8 @@ export function buildReport(session,{scope='all',moon='callisto',generatedAt=Dat
   for(const [index,m] of moons.entries()){
     const left=pad+(index%2)*(panelW+gap),top=headerH+Math.floor(index/2)*(panelH+gap),ps=points.filter(p=>p.moon===m.id),range=session.ranges?.[m.id]||[null,null];
     const used=ps.filter(p=>p.include&&(range[0]===null||p.t>=range[0])&&(range[1]===null||p.t<=range[1])),usedIds=new Set(used.map(p=>p.id)),fit=session.fits[m.id];
-    const ymax=Math.max(1,fit?.amplitude*1.14||0,...ps.map(p=>Math.abs(p.x)*1.14)),L=74,R=panelW-21,T=59,B=panelH-171;
+    // Keep the data scale independent of the student's fitted amplitude.
+    const ymax=Math.max(1,...ps.map(p=>Math.abs(p.x)*1.14)),L=74,R=panelW-21,T=59,B=panelH-171;
     const X=t=>L+(t-domain[0])/(domain[1]-domain[0])*(R-L),Y=v=>(T+B)/2-v/ymax*(B-T)/2;
     let panel=`<rect width="${panelW}" height="${panelH}" rx="6" fill="#fff" stroke="#c6d1dd"/>`+text(18,32,m.roman+' · '+m.name,25,'#142c45','font-weight="700"');
     for(let k=0;k<=4;k++){

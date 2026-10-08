@@ -191,7 +191,8 @@ function plotDomain(){const pts=moonData();if(plotView)return plotView;const ts=
 function renderPlot(){
   const pts=moonData(),fp=fitPoints(),f=session.fits[moon],domain=plotDomain(),residuals=$('showResiduals').checked;
   const W=1000,H=430,L=80,R=975,T=25,B=residuals?270:365,rb=365,rt=307;
-  const ymax=Math.max(1,...pts.map(p=>Math.abs(p.x)*1.15),f?.amplitude*1.15||0),x=t=>L+(t-domain[0])/(domain[1]-domain[0])*(R-L),y=v=>(T+B)/2-v/ymax*(B-T)/2;
+  // Recorded positions anchor the axes; fitting moves only the curve.
+  const ymax=Math.max(1,...pts.map(p=>Math.abs(p.x)*1.15)),x=t=>L+(t-domain[0])/(domain[1]-domain[0])*(R-L),y=v=>(T+B)/2-v/ymax*(B-T)/2;
   plotMeta={L,R,T,B,W,H,domain,ymax};
   let out=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${MOONS.find(m=>m.id===moon).name}: position versus elapsed days"><rect width="1000" height="430" fill="white"/><defs><clipPath id="clip"><rect x="${L}" y="${T}" width="${R-L}" height="${B-T}"/></clipPath></defs>`;
   for(let k=0;k<=6;k++){const t=domain[0]+k*(domain[1]-domain[0])/6,xx=x(t);out+=`<path d="M${xx} ${T}V${residuals?rb:B}" stroke="#e6edf3"/><text x="${xx}" y="390" font-size="14" text-anchor="middle" fill="#536d87">${t.toFixed((domain[1]-domain[0])<3?2:1)}</text>`;}

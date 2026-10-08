@@ -50,9 +50,26 @@ for(let i=0;i<42;i++){
   }
 }
 assert.ok(getSession().measurements.length>130);
+const plotFrame=()=>({
+  axes:Array.from($('plot').querySelector('svg').children).filter(el=>el.tagName==='text'||el.tagName==='path').map(el=>el.outerHTML),
+  points:Array.from($('plot').querySelectorAll('circle'),el=>[el.getAttribute('cx'),el.getAttribute('cy')])
+});
+const measuredFrame=plotFrame();
 $('fitAmplitude').value=13;$('fitPeriod').value=17;$('fitT0').value=7;
 assert.equal($('fitForm').checkValidity(),true,'manual numeric estimates pass browser form constraints');
 await event('fitForm','submit');assert.equal(getSession().fits.callisto.period,17);
+assert.deepEqual(plotFrame(),measuredFrame,'adding a fit keeps the measured-data axes and point positions');
+const fittedCurve=()=>$('plot').querySelector('path[stroke="#bf7915"]');
+const initialCurve=fittedCurve().getAttribute('d');
+$('amplitudeSlider').value=30;await event('amplitudeSlider','input');
+assert.equal(getSession().fits.callisto.amplitude,30);
+assert.deepEqual(plotFrame(),measuredFrame,'raising amplitude beyond the observations leaves the data and axes fixed');
+assert.notEqual(fittedCurve().getAttribute('d'),initialCurve,'the fitted curve moves instead');
+const curveYs=Array.from(fittedCurve().getAttribute('d').matchAll(/[ML][^, ]+,([^ ]+)/g),m=>Number(m[1]));
+const clip=$('plot').querySelector('#clip rect'),clipTop=+clip.getAttribute('y'),clipBottom=clipTop+(+clip.getAttribute('height'));
+assert.ok(Math.min(...curveYs)<clipTop&&Math.max(...curveYs)>clipBottom,'oversized curve extends above and below the data viewport');
+assert.equal(fittedCurve().parentElement.getAttribute('clip-path'),'url(#clip)','oversized curve is clipped at the axes');
+$('amplitudeSlider').value=13;await event('amplitudeSlider','input');
 const before=+$('rms').textContent;await click('refine');assert.ok(+$('rms').textContent<before);
 assert.ok(Math.abs(getSession().fits.callisto.period-16.69)<.2);
 assert.equal($('fitForm').checkValidity(),true,'refined numeric values remain valid');
