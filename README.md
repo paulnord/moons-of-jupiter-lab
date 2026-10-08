@@ -18,7 +18,7 @@ Open `http://localhost:8873`. JavaScript modules and local catalog tiles require
 
 The GitHub Pages workflow in `.github/workflows/pages.yml` publishes `dist/` on pushes to `main`, after the astronomy, observing-workflow, catalog and report checks pass under Node 24. In the repository’s **Settings → Pages**, select **GitHub Actions** as the source.
 
-The intended public repository is `paulnord/moons-of-jupiter-lab`, with its lab at `https://paulnord.github.io/moons-of-jupiter-lab/`. The existing [Sites version](https://moons-of-jupiter.paranord.chatgpt.site) is managed separately. The GitHub export does not need the Sites hosting manifest.
+The public repository is [paulnord/moons-of-jupiter-lab](https://github.com/paulnord/moons-of-jupiter-lab), with the [live lab on GitHub Pages](https://paulnord.github.io/moons-of-jupiter-lab/). The existing [Sites version](https://moons-of-jupiter.paranord.chatgpt.site) is managed separately. The GitHub export does not need the Sites hosting manifest.
 
 ## Use
 
@@ -42,6 +42,8 @@ The initial date is 2024-01-05 20:46 UTC. The nearest photographic aspect repeat
 The app loads 133,269 real stars from the Tycho-2 main catalogue plus Supplement-1 in local 30-degree RA tiles (4.8 MB total; loaded on demand). The subset covers ±5 degrees of J2000 ecliptic latitude, through V_T magnitude 12. Source queries, hashes, record layout, counts and references are in `dist/assets/stars/sources.json`; `scripts/build-star-catalog.py` reproduces the subset. The app uses the date-dependent Jupiter position and angular diameter, and propagates stars with catalog proper motions. Stars without motion data retain their original coordinates. There are no synthetic stars. This is not a complete faint sky; annual stellar parallax, binary orbital motion and variability are omitted.
 
 ## Verification
+
+The wide CSV was checked against Data Tool 2027’s actual delimiter parser and column-mapping functions (`dataInput.ts`, SHA `ba93f776152d623b08ccce9cc94ad7cca8f6b086`), including header/X detection, all four Y columns, blank positions, numeric negatives, overlap flags and quoted multiline notes.
 
 `npm install` installs the optional DOM-test dependency. `npm test` runs the scientific and simulated UI checks. For an existing jsdom installation, the UI check accepts its module path in `JUPITER_JSDOM_MODULE`.
 
