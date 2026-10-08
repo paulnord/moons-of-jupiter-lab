@@ -5,6 +5,8 @@ import {createStarField} from './star-catalog.mjs';
 import {buildReport,reportPng,reportTime} from './report.mjs';
 const midnight=PHOTO_EPOCH;
 let session=newSession(midnight),dirty=false,mag=100,overhead=false,playing=null,selected=null,ruler=null,skyPositions=[],skyStars=[],moon='callisto',plotView=null,plotMeta=null,range=[null,null],confirmResolver=null,hovered=null,pendingPick=null,undoStack=[];
+// Keep each measured click visible throughout this observation, independently of selection.
+const measurementMarkers=new Map();let markerEpoch=session.current;
 const num=v=>Number.isFinite(v)?v.toFixed(3):'—';
 const elapsed=ms=>(ms-session.start)/DAY_MS;
 const utc=ms=>new Date(ms).toISOString().slice(0,16).replace('T',' ');
@@ -34,6 +36,7 @@ function shape(c,p,x,y,r){c.beginPath();if(p.symbol==='square')c.rect(x-r,y-r,2*
 const drawTelescope=createTelescopeRenderer(()=>renderScene());
 const starField=createStarField(()=>renderScene());
 function renderScene(){
+  if(markerEpoch!==session.current){measurementMarkers.clear();markerEpoch=session.current;}
   skyPositions=positions(session.current);skyStars=[];const cloudy=weatherNow()&&!playing&&!overhead;
   $('dateReadout').textContent=utc(session.current)+' UTC';$('jdReadout').textContent='Julian date '+julianDate(session.current).toFixed(5);
   $('weather').textContent=playing?'Exploring motion':overhead?'Overhead · exploration only':cloudy?'Clouded out · no measurements':session.settings.viewMode==='space'?'Space telescope · above the atmosphere':'Ground telescope · clear';
@@ -69,10 +72,21 @@ function renderScene(){
     for(let x=0;x<=1000;x+=100){c.beginPath();c.moveTo(x,328);c.lineTo(x,333);c.stroke();c.fillText(String(x),Math.max(14,Math.min(986,x)),350);}
     c.strokeStyle='#6dd3ec';for(const x of ruler){c.beginPath();c.moveTo(x,42);c.lineTo(x,315);c.stroke();}
   }
-  if(selected&&!cloudy&&!overhead){
+  if(!cloudy&&!overhead){
     // Mark the measured pixel, never silently snap it to an ephemeris position.
-    c.strokeStyle='#6dd3ec';c.lineWidth=1;c.beginPath();
-    for(const sign of [-1,1]){c.moveTo(selected.xPixel+sign*5,selected.yPixel);c.lineTo(selected.xPixel+sign*11,selected.yPixel);c.moveTo(selected.xPixel,selected.yPixel+sign*5);c.lineTo(selected.xPixel,selected.yPixel+sign*11);}c.stroke();
+    const marks=new Map();
+    for(const [id,mark] of measurementMarkers){
+      const observation=session.measurements.find(p=>p.id===id);
+      if(!observation){measurementMarkers.delete(id);continue;}
+      if(selected?.id===observation.moon)continue;
+      const ratio=mag/mark.mag,xPixel=500+(mark.xPixel-500)*ratio,yPixel=180+(mark.yPixel-180)*ratio;
+      marks.set(xPixel.toFixed(4)+','+yPixel.toFixed(4),{xPixel,yPixel});
+    }
+    if(selected?.ms===session.current)marks.set(selected.xPixel.toFixed(4)+','+selected.yPixel.toFixed(4),selected);
+    for(const mark of marks.values()){
+      c.strokeStyle='#6dd3ec';c.lineWidth=1;c.beginPath();
+      for(const sign of [-1,1]){c.moveTo(mark.xPixel+sign*5,mark.yPixel);c.lineTo(mark.xPixel+sign*11,mark.yPixel);c.moveTo(mark.xPixel,mark.yPixel+sign*5);c.lineTo(mark.xPixel,mark.yPixel+sign*11);}c.stroke();
+    }
   }
   if(cloudy){c.fillStyle='#17202b';c.fillRect(0,0,1000,360);c.fillStyle='#ccd8e5';c.font='25px system-ui';c.textAlign='center';c.fillText('Clouded out',500,170);c.font='16px system-ui';c.fillText('Advance to the next observation.',500,204);}
   $('moonHover').hidden=true;hovered=null;
@@ -139,10 +153,11 @@ function saveMeasurements(ids,xPixel,yPixel,{position,note,overlap=[]}={}){
   if(overhead||playing||weatherNow())throw new Error('Record in a clear, paused telescope view.');
   const x=position??(500-xPixel)/(1000/(32*100/mag));
   if(!ids.length||ids.some(id=>!MOONS.some(m=>m.id===id))||!Number.isFinite(x)||Math.abs(x)>30)throw new Error('Choose a moon and a valid position.');
-  const before=ids.map(id=>{const p=session.measurements.find(p=>p.ms===session.current&&p.moon===id);return {moon:id,prior:p?structuredClone(p):null};});
+  const before=ids.map(id=>{const p=session.measurements.find(p=>p.ms===session.current&&p.moon===id);return {moon:id,prior:p?structuredClone(p):null,marker:p?measurementMarkers.get(p.id):null};});
   for(const id of ids){let p=session.measurements.find(p=>p.ms===session.current&&p.moon===id);
     if(!p){p={id:session.nextId++,moon:id,ms:session.current,include:true,note:''};session.measurements.push(p);}
     p.x=x;p.pixel=xPixel;if(note!==undefined)p.note=note;
+    measurementMarkers.set(p.id,{xPixel,yPixel,mag});
     if(overlap.length>1)p.overlap=[...overlap];else delete p.overlap;
   }
   undoStack.push({ms:session.current,before});if(undoStack.length>30)undoStack.shift();
@@ -152,7 +167,11 @@ function saveMeasurements(ids,xPixel,yPixel,{position,note,overlap=[]}={}){
 }
 function undoMeasurement(){
   if(!undoStack.length)return;const action=undoStack.pop();
-  for(const {moon,prior} of action.before){session.measurements=session.measurements.filter(p=>!(p.ms===action.ms&&p.moon===moon));if(prior)session.measurements.push(prior);}
+  for(const {moon,prior,marker} of action.before){
+    const current=session.measurements.find(p=>p.ms===action.ms&&p.moon===moon);if(current)measurementMarkers.delete(current.id);
+    session.measurements=session.measurements.filter(p=>!(p.ms===action.ms&&p.moon===moon));if(prior)session.measurements.push(prior);
+    if(prior&&marker&&action.ms===session.current)measurementMarkers.set(prior.id,marker);
+  }
   resetSelection();changed();renderAll();status('Last recording undone'+(action.ms===session.current?'.':' ('+utc(action.ms)+' UTC).'));
 }
 function invalidateUndo(){undoStack=[];$('undoMeasurement').disabled=true;}
@@ -237,7 +256,7 @@ async function confirmAction(title,text){$('confirmTitle').textContent=title;$('
 function finishConfirm(result){$('confirmDialog').close();confirmResolver?.(result);confirmResolver=null;}
 async function pinHash(s){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');}
 function openSettings(){const s=session.settings;for(const [id,key] of [['settingIdentify','identify'],['settingDistances','distances'],['settingClouds','clouds'],['settingRestart','restart']])$(id).checked=s[key];$('settingPercent').value=s.percentCloudy;$('settingInstructions').value=s.instructions;$('settingPin').value='';$('settingsDialog').showModal();}
-function resetSession(start){const settings={...session.settings},student=session.student,group=session.group;stop();session=newSession(start);invalidateUndo();session.settings=settings;session.student=student;session.group=group;plotView=null;range=[null,null];resetSelection();loadFitControls();changed();renderAll();}
+function resetSession(start){const settings={...session.settings},student=session.student,group=session.group;stop();session=newSession(start);measurementMarkers.clear();invalidateUndo();session.settings=settings;session.student=student;session.group=group;plotView=null;range=[null,null];resetSelection();loadFitControls();changed();renderAll();}
 
 $('sky').addEventListener('pointermove',e=>{
   const b=e.currentTarget.getBoundingClientRect(),x=(e.clientX-b.left)*1000/b.width,y=(e.clientY-b.top)*360/b.height;
@@ -279,7 +298,7 @@ $('beginSession').addEventListener('click',run(async()=>{if(locked())throw new E
 $('newSession').addEventListener('click',run(async()=>{if(locked())throw new Error('Restarting is disabled.');if(dirty&&!await confirmAction('Start a new session?','Unsaved observations will be cleared. Save a session file first to keep them.'))return;resetSession(midnight);status('New session started. Instructor settings have been retained.');}));
 $('saveSession').addEventListener('click',()=>{stop();download('jupiter-lab-'+new Date(session.start).toISOString().slice(0,10)+'.json',JSON.stringify(session,null,2),'application/json');dirty=false;$('saveState').textContent='Session download requested. Keep the file to reopen your work.';status('Session file prepared for download.');});
 $('loadSession').addEventListener('click',()=>{if(!locked())$('sessionFile').click();});
-$('sessionFile').addEventListener('change',run(async e=>{const file=e.target.files[0];if(!file)return;try{if(locked())throw new Error('Opening another session is disabled by the instructor.');if(file.size>6000000)throw new Error('Session file is too large.');const s=validateSession(JSON.parse(await file.text()));if(dirty&&!await confirmAction('Open another session?','This replaces the current unsaved work. Continue only if you have saved anything you need.'))return;stop();session=s;invalidateUndo();plotView=null;resetSelection();loadFitControls();dirty=false;renderAll();$('saveState').textContent='Opened '+file.name;status('Session restored: '+session.measurements.length+' recorded observations.');}finally{e.target.value='';}}));
+$('sessionFile').addEventListener('change',run(async e=>{const file=e.target.files[0];if(!file)return;try{if(locked())throw new Error('Opening another session is disabled by the instructor.');if(file.size>6000000)throw new Error('Session file is too large.');const s=validateSession(JSON.parse(await file.text()));if(dirty&&!await confirmAction('Open another session?','This replaces the current unsaved work. Continue only if you have saved anything you need.'))return;stop();session=s;measurementMarkers.clear();invalidateUndo();plotView=null;resetSelection();loadFitControls();dirty=false;renderAll();$('saveState').textContent='Opened '+file.name;status('Session restored: '+session.measurements.length+' recorded observations.');}finally{e.target.value='';}}));
 $('exportCsv').addEventListener('click',()=>{download('jupiter-measurements.csv',csvText(session),'text/csv;charset=utf-8');status('Data Tool CSV prepared: elapsed days and four moon position columns. Missing observations are blank; inclusion flags and notes are retained.');});
 for(const id of ['exportPlot','printPlot','printLab'])$(id).addEventListener('click',openReport);
 $('reportScope').addEventListener('change',refreshReport);
@@ -311,8 +330,8 @@ $('plot').addEventListener('keydown',e=>{if(e.key==='+'||e.key==='='){zoom(.65);
 $('measurements').addEventListener('change',e=>{if(e.target.dataset.include){const p=session.measurements.find(p=>p.id===+e.target.dataset.include);p.include=e.target.checked;invalidateUndo();changed();renderNotebook();renderPlot();}});
 const edit=document.createElement('dialog');edit.id='editDialog';edit.innerHTML='<div class="dialog-heading"><h2>Edit measurement</h2><button type="button" id="closeEdit">Close</button></div><form id="editForm" class="guide-body"><p id="editDescription"></p><label>Moon<select id="editMoon">'+MOONS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')+'</select></label><label>Position (Jupiter diameters)<input id="editX" type="number" min="-30" max="30" step="0.001" required></label><label>Note<input id="editNote" maxlength="1000"></label><button class="primary" type="submit">Save measurement</button></form>';document.body.append(edit);let editId=null;
 $('closeEdit').addEventListener('click',()=>edit.close());
-$('measurements').addEventListener('click',run(async e=>{const id=Number(e.target.dataset.edit||e.target.dataset.delete);if(!id)return;const p=session.measurements.find(p=>p.id===id);if(e.target.dataset.delete){if(await confirmAction('Delete this measurement?',`${MOONS.find(m=>m.id===p.moon).name} at ${utc(p.ms)} UTC will be removed from this session.`)){session.measurements=session.measurements.filter(p=>p.id!==id);invalidateUndo();changed();renderAll();}}else{editId=id;$('editDescription').textContent=utc(p.ms)+' UTC · elapsed day '+elapsed(p.ms).toFixed(4);$('editMoon').value=p.moon;$('editX').value=p.x;$('editNote').value=p.note;edit.showModal();}}));
-$('editForm').addEventListener('submit',run(e=>{e.preventDefault();const p=session.measurements.find(p=>p.id===editId),x=Number($('editX').value),id=$('editMoon').value;if(!$('editX').value.trim()||!Number.isFinite(x)||Math.abs(x)>30)throw new Error('Enter a valid signed position.');if(session.measurements.some(v=>v.id!==p.id&&v.ms===p.ms&&v.moon===id))throw new Error('Another measurement already assigns this moon at this time.');p.x=x;p.moon=id;p.note=$('editNote').value;invalidateUndo();edit.close();changed();renderAll();}));
+$('measurements').addEventListener('click',run(async e=>{const id=Number(e.target.dataset.edit||e.target.dataset.delete);if(!id)return;const p=session.measurements.find(p=>p.id===id);if(e.target.dataset.delete){if(await confirmAction('Delete this measurement?',`${MOONS.find(m=>m.id===p.moon).name} at ${utc(p.ms)} UTC will be removed from this session.`)){session.measurements=session.measurements.filter(p=>p.id!==id);resetSelection();invalidateUndo();changed();renderAll();}}else{editId=id;$('editDescription').textContent=utc(p.ms)+' UTC · elapsed day '+elapsed(p.ms).toFixed(4);$('editMoon').value=p.moon;$('editX').value=p.x;$('editNote').value=p.note;edit.showModal();}}));
+$('editForm').addEventListener('submit',run(e=>{e.preventDefault();const p=session.measurements.find(p=>p.id===editId),x=Number($('editX').value),id=$('editMoon').value;if(!$('editX').value.trim()||!Number.isFinite(x)||Math.abs(x)>30)throw new Error('Enter a valid signed position.');if(session.measurements.some(v=>v.id!==p.id&&v.ms===p.ms&&v.moon===id))throw new Error('Another measurement already assigns this moon at this time.');if(x!==p.x){const mark=measurementMarkers.get(p.id);if(mark)measurementMarkers.set(p.id,{...mark,xPixel:500-x*(1000/(32*100/mark.mag))});}resetSelection();p.x=x;p.moon=id;p.note=$('editNote').value;invalidateUndo();edit.close();changed();renderAll();}));
 for(const [button,dialog]of [['guideButton','guideDialog'],['provenanceButton','provenanceDialog']])$(button).addEventListener('click',()=>{stop();$(dialog).showModal();});
 document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
 $('settingsButton').addEventListener('click',()=>{stop();if(session.settings.pinHash){$('pinEntry').value='';$('pinError').hidden=true;$('pinDialog').showModal();}else openSettings();});
