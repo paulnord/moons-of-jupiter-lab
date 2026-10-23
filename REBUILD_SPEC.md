@@ -1,6 +1,6 @@
 # Reconstruction requirements and scientific intent
 
-Version 1 — 2026-10-07. This specification describes the delivered implementation and the remaining validation work. It preserves learning goals independently of UI implementation. It does not claim exact CLEA binary parity.
+Manual-workflow revision — 2026-10-23. This specification describes the delivered implementation and the remaining validation work. It preserves learning goals independently of UI implementation. It does not claim exact CLEA binary parity.
 
 ## Audience and purpose
 
@@ -13,18 +13,18 @@ Students use repeated observations to infer orbital properties and a planet's ma
 | Relate telescope motion to overhead orbits | Explore both views without recording overhead coordinates | Distinguish orbital motion from its projection |
 | Identify moons and acquire observations | UTC/JD, assigned identity, signed displacement, note | Build an evidence-based observing record |
 | Encounter clouds or hidden moons | Missing measurements and cloudy-epoch entries | Missing data are not zero displacement |
-| Estimate a curve before refining | Explicit amplitude, period, positive-going zero crossing | Connect observable displacement to orbital scale and cycle count |
+| Estimate a curve before adjusting | Explicit amplitude, period, positive-going zero crossing | Connect observable displacement to orbital scale and cycle count |
 | Adjust and inspect residuals | Manual sliders, RMS, range and inclusion flags | Reason about fit quality and ambiguous sampling |
 | Apply Kepler's law | Four independent mass estimates and an unweighted mean | Infer one physical property from multiple orbits |
 | Explain differences | Free-form conclusions stored with measurements | Preserve the student's scientific argument |
 
-Do not replace estimation with a button that supplies true orbital parameters. Local refinement may improve a student's estimate, but must not silently look up the moon's true period. The graph, notebook, and exported data all use recorded measurements, not a substituted theoretical series.
+Students estimate and manually adjust amplitude, period, and zero crossing. Do not provide automatic fit refinement or a button that supplies true orbital parameters. The graph, notebook, and exported data all use recorded measurements, not a substituted theoretical series.
 
 ## Shared design rules
 
 Match the companion spectra lab's light scientific workspace and navy application bar. Use system sans-serif type; monospaced numbers only where they improve reading. Main data controls stay close to their graph. Save/open and notebook conventions should be reused by future tools.
 
-The telescope uses a black image field with real Jupiter photography and subtle moon spots. Jupiter's disk provides the physical scale. Names appear only on hover or selection; colored symbols are confined to the overhead diagram and can be hidden by the instructor. A large plot carries the analysis: blue recorded data, amber fitted curve. An expandable keyboard target list and labeled inputs accompany canvas interaction. No wheel handler may trap ordinary page scrolling.
+The telescope uses a black image field with real Jupiter photography and subtle moon spots. Jupiter's disk provides the physical scale. Names appear only on hover or selection; colored symbols are confined to the overhead diagram and can be hidden by the instructor. A large plot carries the analysis: blue recorded data, amber fitted curve. Labeled inputs accompany canvas interaction; students measure the moon in the image rather than selecting a predicted-center target button. No wheel handler may trap ordinary page scrolling.
 
 ## Feature correspondence
 
@@ -32,13 +32,13 @@ The telescope uses a black image field with real Jupiter photography and subtle 
 | --- | --- |
 | Start date, observation interval, repeated viewing | UTC controls, previous/next, 0.05–168 hour interval |
 | Variable magnification | Four telescope magnifications, 100×–400× |
-| Measuring east/west positions | Cursor measurement or rounded virtual-pixel target selection |
+| Measuring east/west positions | Actual clicked detector coordinate; no predicted-center target selection |
 | Color/identity assistance | Hover names in telescope view; symbols/colors in overhead view; instructor can hide identity |
 | Hidden distance assistance | Detector pixels plus diameter ruler; student enters scaled distance |
 | Cloudy observations | Ground mode only; deterministic per-epoch cloud state, configurable percentage, gap log |
 | Animation and overhead view | Both available for exploration; measurement disabled in these modes |
 | Manual sine fitting and RMS | Three parameters, coarse/fine slider ranges, residual panel |
-| Fit refinement | Added local least-squares search around student's period |
+| Fit refinement | Manual coarse/fine adjustments only; automatic refinement removed |
 | Editing observations | Edit identity/position/note, delete with confirmation, include/exclude |
 | Time-range analysis | Per-moon fit range, plot zoom/pan independent of inclusion |
 | Saving data and printing | Versioned JSON session, CSV measurements, PNG four/single-moon figure, print report |
@@ -55,7 +55,7 @@ Let L be the normalized Earth-to-Jupiter vector and N the north-pole unit vector
 
 Constants: Jupiter equatorial diameter 142984 km; AU 149597870.7 km; day 86400 s; Julian year 365.25 days; G 6.67430e-11 SI; Earth mass 5.9722e24 kg. Amplitude A is an orbital **radius expressed in planet diameters**: a = A × 142984 km. Compute M ≈ 4π²a³/(GP²) in consistent SI units. Neglect satellite mass. Never accidentally halve A because the unit is a diameter.
 
-The sine model is x(t) = A sin(2π(t − t0)/P), with t in elapsed days from the session start. A > 0; 0.1 ≤ P ≤ 100 days. Refinement samples trial periods within ±15% of the initial P, solves sine/cosine least squares at each trial without a vertical offset, and narrows around the minimum over five passes. It needs at least five included data points spanning more than one observation time. It reports no formal parameter uncertainties. RMS is sqrt(mean(residual²)), not reduced chi-squared.
+The sine model is x(t) = A sin(2π(t − t0)/P), with t in elapsed days from the session start. A > 0; 0.1 ≤ P ≤ 100 days. Students adjust the three parameters manually with numeric inputs and coarse/fine sliders. No automatic optimizer or goodness-of-fit unlock threshold is provided. No formal parameter uncertainties are reported. RMS is sqrt(mean(residual²)), not reduced chi-squared.
 
 The viewing direction changes during an observing run; apparent fitted periods need not equal inertial sidereal periods. Eccentricity, projection, and perturbations also create departures from the simple sine model. Small residuals cannot rule out a wrong cycle count.
 
@@ -65,7 +65,7 @@ The telescope renderer uses nine original January 5–6, 2024 Hubble OPAL images
 
 ## Measurement and persistence
 
-The sensor has 1000 × 360 virtual pixels. Clicking records that cursor location; accessible selection rounds the projected center to a virtual pixel. Normal identified clicks record immediately. Reclicking the same moon/time upserts the existing record while preserving its ID, note and inclusion flag. Nearby/overlapping candidates open an inline chooser; each moon, Both, or All can be recorded. Both uses the same actual clicked pixel and displacement in separate per-moon records. No blend is automatically rejected or excluded. The notebook records overlap metadata, exported as per-moon CSV metadata columns. Undo reverses a single recording action atomically, including replacements and mixed create/replace Both actions. Editing/deleting/inclusion changes clear the short Undo history to avoid overwriting later notebook decisions. Undo is transient and not stored in session files. Manual assignment and measured distance entry remain available when instructor assistance is hidden. One record per assigned moon per observation time is used. Scale depends on magnification; physical data do not change when zooming.
+The sensor has 1000 × 360 virtual pixels. Clicking records that cursor location. Direct target buttons that rounded the projected center to a virtual pixel have been removed. Normal identified clicks record immediately. Reclicking the same moon/time upserts the existing record while preserving its ID, note and inclusion flag. Nearby/overlapping candidates open an inline chooser; each moon, Both, or All can be recorded. Both uses the same actual clicked pixel and displacement in separate per-moon records. No blend is automatically rejected or excluded. The notebook records overlap metadata, exported as per-moon CSV metadata columns. Undo reverses a single recording action atomically, including replacements and mixed create/replace Both actions. Editing/deleting/inclusion changes clear the short Undo history to avoid overwriting later notebook decisions. Undo is transient and not stored in session files. Manual assignment and measured distance entry remain available when instructor assistance is hidden. One record per assigned moon per observation time is used. Scale depends on magnification; physical data do not change when zooming.
 
 Session state is in memory and must be explicitly saved as a downloaded JSON file. No cloud student database, hidden browser-only persistence, or autosave promise. `format: "jupiter-lab"`, `version: 1` identifies a session. It contains start/current UTC epoch milliseconds, interval hours, weather seed, student/group/notes, measurement IDs and inclusion flags, cloud log, per-moon fits and fit ranges, next ID, and instructor settings. File loading validates shape, finite values, date/size limits, moon IDs, fit bounds, and duplicate IDs before replacing current state. Open/new operations confirm unsaved-data replacement.
 
@@ -77,15 +77,15 @@ Read-only browser tooling may expose recorded session data, never unobserved the
 
 `scripts/check-science.mjs` includes a 60-day, 6-hour sample beginning 2026-10-07. Independent NASA/JPL mean periods are approximately 1.769138, 3.551181, 7.154553, and 16.689017 days; orbital radii 421800, 671100, 1070400, and 1882700 km.
 
-Fixed inertial projection recovers all sidereal periods within 0.01% in this test (acceptance threshold 0.1%). Earth-view fits recover apparent periods within 0.48% of those references, radii within 0.064%, and Jupiter mass within 1.11%. Earth-view acceptance bounds are 0.6% in period, 1.5% in radius and 4% in mass. These are specific smoke-test bounds, not universal accuracy guarantees or grading tolerances. The Callisto apparent-period difference was isolated using a fixed inertial projection rather than discarded as numerical noise.
+The science suite uses an explicitly test-only numerical fitting helper outside the distributed app. Fixed inertial projection recovers all sidereal periods within 0.01% in this test (acceptance threshold 0.1%). Earth-view fits recover apparent periods within 0.48% of those references, radii within 0.064%, and Jupiter mass within 1.11%. Earth-view acceptance bounds are 0.6% in period, 1.5% in radius and 4% in mass. These are specific smoke-test bounds, not universal accuracy guarantees or grading tolerances. The Callisto apparent-period difference was isolated using a fixed inertial projection rather than discarded as numerical noise.
 
-The simulated DOM test exercises recorded, pixel-rounded observations and all primary controls, including numeric form validity after refinement. It checks round-trip data, hidden-assistance modes, missing observations, restrictions and basic tool registration. It does not render canvas or prove cross-browser behavior.
+The simulated DOM test exercises actual canvas-click coordinates and all primary controls, including numeric form validity and manual slider fitting. It checks round-trip data, hidden-assistance modes, missing observations, restrictions and basic tool registration. It does not render canvas or prove cross-browser behavior.
 
 Interactive and report vertical axes depend only on recorded positions (including excluded points), with padding and a minimum one-diameter extent. Fit parameters never change the graph scale; curves beyond the data viewport are clipped.
 
 The amplitude slider uses the full numeric input range (0.001–30 Jupiter diameters) in coarse mode. Its former estimate-centered range could stop at 8 after an initial estimate of 5, preventing manual adjustment to Callisto's approximately 13.2-diameter amplitude. Fine adjustment intentionally narrows the range around the current fit; switching it off restores the full amplitude range. Period and phase controls retain their existing local adjustment behavior.
 
-`scripts/check-click-fits.mjs` adds a canvas-click-handler regression and a 35-day observing sequence starting 2026-10-08 at 12-hour intervals. Deterministic aiming errors reach 0.8 detector pixel. The run records 65, 67, 69, and 69 measurements for Io, Europa, Ganymede, and Callisto, respectively. Fitting uses only these recorded positions, with initial periods estimated from positive-going zero crossings. Recovered amplitudes are 2.93415, 4.69294, 7.48630, and 13.16886 Jupiter diameters; apparent fitted periods are 1.76988, 3.55571, 7.17307, and 16.81223 days. All four inferred masses are within 1.6% of the reference value in this particular run (test acceptance: 3%). These are apparent Earth-view sine fits, not sidereal ephemerides. The test checks actual click coordinates, form validity, and leaving fine mode, but mocks canvas painting and is not a visual browser walkthrough.
+`scripts/check-click-fits.mjs` adds a canvas-click-handler regression and a 35-day observing sequence starting 2026-10-08 at 12-hour intervals. Deterministic aiming errors reach 0.8 detector pixel. The run records 65, 67, 69, and 69 measurements for Io, Europa, Ganymede, and Callisto, respectively. Fitting uses only these recorded positions, with amplitude estimated from peak-to-peak extent and period/phase from both-direction zero crossings, then applied through the manual controls. Recovered amplitudes are 2.93135, 4.69762, 7.49024, and 13.17901 Jupiter diameters; apparent fitted periods are 1.76937, 3.55559, 7.17425, and 16.79086 days. All four inferred masses are within 1.9% of the reference value in this particular run (test acceptance: 3%). These are apparent Earth-view sine fits, not sidereal ephemerides. The test checks actual click coordinates, form validity, and leaving fine mode, but mocks canvas painting and is not a visual browser walkthrough. This click-workflow suite uses no optimizer. The separate science suite has a test-only fitting helper; no optimizer is shipped in the current classroom app.
 
 The native Canvas check renders the actual `paintTelescope` code, verifies source-image hashes and rotational frame selection, compares pixel arrays with/without hidden and transiting moons and shadows, checks ground blur and mode/seeing serialization, and produces a contact sheet for visual inspection. This runs without a browser and does not establish DOM layout or browser-specific rendering.
 

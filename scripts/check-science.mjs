@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import * as Astronomy from '../dist/vendor/astronomy.mjs';
-import {positions,DAY_MS,MOONS,julianDate,cloudAt,newSession,validateSession,refineFit,massFromFit,csvText} from '../dist/engine.mjs';
+import * as Engine from '../dist/engine.mjs';
+import {positions,DAY_MS,MOONS,julianDate,cloudAt,newSession,validateSession,validateFit,residualRms,massFromFit,csvText} from '../dist/engine.mjs';
+import {fitScienceFixture} from './science-fixture-fit.mjs';
+assert.equal('refineFit' in Engine,false,'the distributed engine exposes no automatic fitting operation');
+for(const file of ['app.mjs','engine.mjs','index.html']){
+  const source=await readFile(new URL('../dist/'+file,import.meta.url),'utf8');
+  assert.doesNotMatch(source,/refineFit|science-fixture-fit|fitScienceFixture/,'scientific test fitting must not ship in the application');
+}
 // External references: NASA NSSDC Jovian Satellite Fact Sheet, JPL JUP365 mean elements.
 const refs={io:{p:1.769138,a:421800},europa:{p:3.551181,a:671100},ganymede:{p:7.154553,a:1070400},callisto:{p:16.689017,a:1882700}};
 assert.equal(julianDate(Date.UTC(2000,0,1,12)),2451545);
@@ -19,12 +27,12 @@ const axis=east.map(v=>v/length);
 for(const m of MOONS){
   const inertial=[];
   for(let t=0;t<60;t+=.25){const r=Astronomy.JupiterMoons(new Date(start+t*DAY_MS))[m.id];inertial.push({t,x:(r.x*axis[0]+r.y*axis[1]+r.z*axis[2])*149597870.7/142984});}
-  const f=refineFit(inertial,{amplitude:5,period:refs[m.id].p*1.04,t0:1});
+  const f=fitScienceFixture(inertial,{amplitude:5,period:refs[m.id].p*1.04,t0:1});
   assert.ok(Math.abs(f.period/refs[m.id].p-1)<.001,`${m.id} sidereal period vs independent reference`);
 }
 for(let i=0;i<240;i++){const t=i*.25;for(const p of positions(start+t*DAY_MS))if(p.visible)points[p.id].push({t,x:p.x});}
 const summary=[];
-for(const m of MOONS){const r=refs[m.id];const f=refineFit(points[m.id],{amplitude:5,period:r.p*1.04,t0:1});const mass=massFromFit(f);
+for(const m of MOONS){const r=refs[m.id];const f=fitScienceFixture(points[m.id],{amplitude:5,period:r.p*1.04,t0:1});const mass=massFromFit(f);
   // In this observing window apparent Callisto P is 0.47% above sidereal P.
   // Fixed-axis test above rules out an orbital-model period error.
   assert.ok(Math.abs(f.period/r.p-1)<.006,`${m.id} apparent period near sidereal reference`);
@@ -36,7 +44,12 @@ const s=newSession(start);s.measurements.push({id:1,moon:'io',ms:start,x:-2.71,i
 const restored=validateSession(JSON.parse(JSON.stringify(s)));assert.deepEqual(restored.measurements,s.measurements);assert.deepEqual(restored.ranges,s.ranges);assert.deepEqual(restored.fits,s.fits);assert.equal(restored.nextId,2);
 assert.throws(()=>validateSession({...s,measurements:[{...s.measurements[0],x:Infinity}]}));
 assert.throws(()=>validateSession({...s,measurements:[s.measurements[0],s.measurements[0]]}));
-assert.throws(()=>refineFit([],{amplitude:1,period:2,t0:0}));
+assert.throws(()=>fitScienceFixture([],{amplitude:1,period:2,t0:0}));
+// Manual parameter validation and diagnostic residuals remain in the runtime.
+const manual={amplitude:2,period:4,t0:0};
+assert.ok(validateFit(manual));assert.equal(validateFit({...manual,amplitude:0}),false);assert.equal(validateFit({...manual,period:0}),false);assert.equal(validateFit({...manual,t0:Infinity}),false);
+assert.equal(residualRms([],manual),null);assert.equal(residualRms([{t:0,x:1},{t:1,x:3}],manual),1);
+assert.throws(()=>massFromFit({...manual,period:0}));
 assert.ok(csvText(s).includes('"\'=not a formula"'));assert.ok(csvText(s).includes('"-2.71"'));
 for(let i=0;i<100;i++){const t=start+i*DAY_MS;assert.equal(cloudAt(t,44,0),false);assert.equal(cloudAt(t,44,100),true);assert.equal(cloudAt(t,44,10),cloudAt(t,44,10));}
 console.log(JSON.stringify({status:'passed',reference:'NASA NSSDC/JPL mean orbital properties',summary},null,2));

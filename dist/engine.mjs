@@ -70,30 +70,6 @@ export function validateFit(f) {return f&&Number.isFinite(f.amplitude)&&f.amplit
 export function residualRms(points,fit) {
   return points.length?Math.sqrt(points.reduce((s,p)=>s+(p.x-sine(p.t,fit))**2,0)/points.length):null;
 }
-// Least squares at one trial period, with no vertical offset: the origin is Jupiter.
-function atPeriod(points,period) {
-  let ss=0,cc=0,sc=0,sy=0,cy=0;
-  for(const p of points){const a=2*Math.PI*p.t/period,s=Math.sin(a),c=Math.cos(a);ss+=s*s;cc+=c*c;sc+=s*c;sy+=s*p.x;cy+=c*p.x;}
-  const det=ss*cc-sc*sc;if(Math.abs(det)<1e-12)return null;
-  const b=(sy*cc-cy*sc)/det,c=(cy*ss-sy*sc)/det;
-  const f={amplitude:Math.hypot(b,c),period,t0:((Math.atan2(-c,b)*period/(2*Math.PI))%period+period)%period};
-  return {...f,rms:residualRms(points,f)};
-}
-// Deliberately local refinement around a student's initial estimate; no hidden true periods.
-export function refineFit(points,initial) {
-  if(points.length<5)throw new Error('Include at least five measurements to refine a fit.');
-  if(!validateFit(initial))throw new Error('Enter valid amplitude, period, and zero-crossing estimates first.');
-  const span=Math.max(...points.map(p=>p.t))-Math.min(...points.map(p=>p.t));
-  if(span<=0)throw new Error('Measurements must span more than one observation time.');
-  let lo=Math.max(.1,initial.period*.85),hi=Math.min(100,initial.period*1.15),best=null;
-  for(let pass=0;pass<5;pass++){
-    const step=(hi-lo)/100;
-    for(let k=0;k<=100;k++){const f=atPeriod(points,lo+k*step);if(f&&(!best||f.rms<best.rms))best=f;}
-    if(!best)throw new Error('The measurements do not constrain this fit.');
-    lo=Math.max(.1,best.period-step*2);hi=Math.min(100,best.period+step*2);
-  }
-  return {amplitude:best.amplitude,period:best.period,t0:best.t0};
-}
 export function massFromFit(f) {
   if(!validateFit(f))throw new Error('A valid fitted amplitude and period are required.');
   const radiusKm=f.amplitude*JUPITER_DIAMETER_KM,periodSec=f.period*86400;

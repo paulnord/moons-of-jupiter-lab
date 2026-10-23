@@ -20,6 +20,12 @@ const key=async(id,k,extra={})=>{$(id).dispatchEvent(new window.KeyboardEvent('k
 const point=async(x,y)=>{$('sky').dispatchEvent(new window.MouseEvent('click',{clientX:x,clientY:y,bubbles:true}));await settle();};
 const sky=p=>({x:500-p.x*31.25,y:180-p.y*31.25});
 const marked=(x,y)=>drawnMarkers.some(p=>Math.abs(p.x-x)<1e-8&&Math.abs(p.y-y)<1e-8);
+assert.equal($('targets'),null,'the direct predicted-center selection container is removed');
+assert.equal(document.querySelector('.keyboard-targets,[data-target]'),null,'no moon shortcut remains in the rendered controls');
+assert.doesNotMatch($('sky').getAttribute('aria-label'),/keyboard targets/i,'accessible instructions do not offer removed target buttons');
+for(const shortcut of ['1','2','3','4','i','e','g','c','Enter',' '])await key('sky',shortcut);
+assert.equal(getSession().measurements.length,0,'keyboard input cannot select or record a moon without an image click');
+assert.equal($('measureMoon').value,'');assert.equal($('measureX').value,'');
 let p=positions(getSession().current).filter(p=>p.visible).sort((a,b)=>Math.abs(b.x)-Math.abs(a.x))[0],xy=sky(p);
 await point(xy.x+.6,xy.y);assert.equal(getSession().measurements.length,1,'one click records');
 assert.ok(marked(xy.x+.6,xy.y),'marker uses the actual clicked pixel');
@@ -39,10 +45,24 @@ assert.ok(marked(xy.x+.6,xy.y),'undo restores the previous marker');
 const t=getSession().current;await key('sky','ArrowRight');assert.equal(getSession().current,t+12*3600000);await key('sky','ArrowLeft');assert.equal(getSession().current,t);
 assert.equal(drawnMarkers.length,0,'moving between observations clears the markers');
 await key('measureX','ArrowRight');assert.equal(getSession().current,t,'typing does not change observations');
+await key('sky','ArrowRight',{repeat:true});assert.equal(getSession().current,t,'a held arrow does not skip observations');
+await key('sky','ArrowRight',{ctrlKey:true});assert.equal(getSession().current,t,'modified arrows do not advance observations');
 $('imageBrightness').value=5;await event('imageBrightness','input');$('imageContrast').value=.7;await event('imageContrast','input');
 assert.deepEqual(getSession().measurements,[saved],'image controls preserve measurements');
 assert.equal(validateSession(getSession()).settings.brightness,5);assert.equal(validateSession(getSession()).settings.contrast,.7);
 $('resetImage').click();assert.equal(getSession().settings.brightness,0);assert.equal(getSession().settings.contrast,1);
+// CSS-resized images must preserve virtual detector coordinates, including the
+// off-center aiming error, rather than substituting the model's moon center.
+$('sky').getBoundingClientRect=()=>({left:20,top:30,width:500,height:180});
+const detectorX=Math.round(xy.x)+.25,detectorY=Math.round(xy.y)+.75;
+$('sky').dispatchEvent(new window.MouseEvent('click',{clientX:20+detectorX/2,clientY:30+detectorY/2,bubbles:true}));await settle();
+assert.equal(getSession().measurements.length,1,'resized image click replaces the same observation');
+assert.equal(getSession().measurements[0].pixel,detectorX,'CSS scaling is converted to the actual detector pixel');
+assert.equal(getSession().measurements[0].x,(500-detectorX)/31.25);
+assert.notEqual(getSession().measurements[0].x,p.x,'a resized image click remains offset from the model center');
+assert.ok(marked(detectorX,detectorY),'both detector coordinates control the visible marker');
+$('undoMeasurement').click();assert.deepEqual(getSession().measurements,[saved],'resized click remains undoable');
+$('sky').getBoundingClientRect=()=>({left:0,top:0,width:1000,height:360});
 // Find an actual pair of illuminated moons within 5 detector pixels.
 let overlap;
 for(let dt=0;dt<25*DAY_MS&&!overlap;dt+=600000){const ms=t+dt,ps=positions(ms).filter(p=>p.visible&&Math.abs(p.x)>.7&&Math.abs(p.x)<15);
@@ -63,4 +83,4 @@ $('undoMeasurement').click();assert.equal(getSession().measurements.length,1,'mi
 await point((a.x+b.x)/2,(a.y+b.y)/2);await key('sky','ArrowRight');assert.equal($('overlapPicker').hidden,true,'navigation cancels pending choice');
 $('settingsButton').click();$('settingRestart').checked=false;await event('settingsForm','submit');const locked=getSession().current;await key('sky','ArrowLeft');assert.equal(getSession().current,locked,'keyboard respects instructor lock');
 assert.equal($('previousTime').closest('.telescope-panel')!==null,true,'navigation stays beside image');
-console.log(JSON.stringify({status:'passed',checks:'single-click recording, replacement, undo, keyboard scope, image control persistence, real moon overlap, either/both, mixed undo, pending cancellation, instructor lock'}));window.close();
+console.log(JSON.stringify({status:'passed',checks:'no predicted-center shortcuts, single-click recording, exact/resized detector coordinates, replacement, undo, retained arrow navigation and keyboard scope, image control persistence, real moon overlap, either/both, mixed undo, pending cancellation, instructor lock'}));window.close();

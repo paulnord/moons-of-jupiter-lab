@@ -1,4 +1,4 @@
-import {DAY_MS,MOONS,positions,cloudAt,julianDate,dateValid,newSession,validateSession,csvText,sine,validateFit,residualRms,refineFit,massFromFit} from './engine.mjs';
+import {DAY_MS,MOONS,positions,cloudAt,julianDate,dateValid,newSession,validateSession,csvText,sine,validateFit,residualRms,massFromFit} from './engine.mjs';
 const $=id=>document.getElementById(id), esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 import {PHOTO_EPOCH,createTelescopeRenderer,opticalSigma} from './telescope.mjs';
 import {createStarField} from './star-catalog.mjs';
@@ -90,14 +90,8 @@ function renderScene(){
   }
   if(cloudy){c.fillStyle='#17202b';c.fillRect(0,0,1000,360);c.fillStyle='#ccd8e5';c.font='25px system-ui';c.textAlign='center';c.fillText('Clouded out',500,170);c.font='16px system-ui';c.fillText('Advance to the next observation.',500,204);}
   $('moonHover').hidden=true;hovered=null;
-  const targets=$('targets');targets.replaceChildren();
-  if(!cloudy&&!overhead&&!playing){visible.sort((a,b)=>a.sx-b.sx).forEach((p,i)=>{
-    const b=document.createElement('button');b.type='button';b.dataset.target=p.id;b.setAttribute('aria-pressed',String(selected?.id===p.id));
-    b.textContent=session.settings.identify?p.roman+' · '+p.name:'Target '+(i+1);b.addEventListener('click',()=>selectTarget(p,Math.round(p.sx),Math.round(p.sy)));targets.append(b);
-  });}
   $('epochCount').textContent=session.measurements.filter(p=>p.ms===session.current).length+' / 4 moons recorded';
   $('skyDescription').textContent=cloudy?'Clouds block the telescope field.':visible.length+' visible moon targets. '+(session.settings.identify?visible.map(p=>p.name).join(', '):'Moon names are hidden by the instructor.');
-  if(!visible.length&&!cloudy&&!overhead)targets.textContent='No moons in this field. Try a lower magnification or a later time.';
 }
 function candidatesAt(x,y,width){
   const scale=1000/(32*100/mag),onPlanet=((x-500)/(scale*.5))**2+((y-180)/(scale*.5*66854/71492))**2<1;
@@ -209,8 +203,8 @@ function renderPlot(){
   $('pointCount').textContent=fp.length+' included / '+pts.length+' observations';
   $('rms').textContent=f&&fp.length?residualRms(fp,f).toFixed(5):'—';
   const span=fp.length>1?Math.max(...fp.map(p=>p.t))-Math.min(...fp.map(p=>p.t)):0;
-  $('fitWarning').textContent=f?(fp.length<5?'Fewer than five included points. These parameters are not well constrained.':span<f.period?'The observations cover less than one fitted period. Consider a longer observing span.':'A small residual does not rule out a different cycle count. Inspect the observations and your period estimate.'):'Manual estimates come first; refinement becomes available after a curve is plotted.';
-  $('refine').disabled=!f||fp.length<5;$('clearFit').disabled=!f;
+  $('fitWarning').textContent=f?(fp.length<5?'Fewer than five included points. These parameters are not well constrained.':span<f.period?'The observations cover less than one fitted period. Consider a longer observing span.':'A small residual does not rule out a different cycle count. Inspect the observations and your period estimate.'):'Enter your estimates, then adjust the curve manually while comparing the RMS residual.';
+  $('clearFit').disabled=!f;
 }
 function loadFitControls(){const f=session.fits[moon];$('fitAmplitude').value=f?f.amplitude.toFixed(5):'';$('fitPeriod').value=f?f.period.toFixed(6):'';$('fitT0').value=f?f.t0.toFixed(6):'';range=session.ranges?.[moon]||[null,null];$('fitFrom').value=range[0]??'';$('fitTo').value=range[1]??'';setupSliders();}
 function setupSliders(){const f=session.fits[moon],fine=$('fineSliders').checked;
@@ -317,7 +311,6 @@ for(const id of ['connectPoints','showResiduals'])$(id).addEventListener('change
 $('fitForm').addEventListener('submit',run(e=>{e.preventDefault();const values=['fitAmplitude','fitPeriod','fitT0'].map(id=>$(id).value);if(values.some(v=>!v.trim()))throw new Error('Enter all three estimates.');setFit({amplitude:+values[0],period:+values[1],t0:+values[2]});setupSliders();status('Your curve is plotted. Adjust it by eye, then compare the residuals.');}));
 for(const [id,key,field]of [['amplitudeSlider','amplitude','fitAmplitude'],['periodSlider','period','fitPeriod'],['t0Slider','t0','fitT0']])$(id).addEventListener('input',run(e=>{const f={...session.fits[moon],[key]:Number(e.target.value)};$(field).value=f[key].toFixed(6);setFit(f);}));
 $('fineSliders').addEventListener('change',setupSliders);
-$('refine').addEventListener('click',run(()=>{setFit(refineFit(fitPoints(),session.fits[moon]));loadFitControls();status('Local least-squares refinement finished. Check that the cycle count still makes sense.');}));
 $('clearFit').addEventListener('click',()=>{delete session.fits[moon];changed();loadFitControls();renderPlot();renderMass();});
 $('applyRange').addEventListener('click',run(()=>{const a=$('fitFrom').value.trim(),b=$('fitTo').value.trim();const nextRange=[a===''?null:Number(a),b===''?null:Number(b)];if(nextRange.some(v=>v!==null&&!Number.isFinite(v))||(nextRange[0]!==null&&nextRange[1]!==null&&nextRange[0]>=nextRange[1]))throw new Error('Fit start must be earlier than fit end.');range=nextRange;session.ranges??={};session.ranges[moon]=range;changed();renderPlot();}));
 $('clearRange').addEventListener('click',()=>{range=[null,null];if(session.ranges)delete session.ranges[moon];$('fitFrom').value='';$('fitTo').value='';changed();renderPlot();});
